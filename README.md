@@ -7,7 +7,7 @@ License: MIT
 
 ## About
 
-This set of scripts enable you to install **ubuntu** or **raspios** images on your raspberry.
+This set of scripts enables you to install **ubuntu** or **raspios** images on your raspberry.
 
 ## Advantages
 
@@ -28,6 +28,7 @@ This set of scripts enable you to install **ubuntu** or **raspios** images on yo
 
 - A computer with Linux (tested with ubuntu 18.04/20.04 x86_64 and Fedora >=31)
 - An SD Card, I recommend at least 16Gb, with the U3 logo, from a well known provider.
+- Before the install, optionally for more security you can fill your sdcard with random data (eg. `pv /dev/urandom > /dev/sdX`), **be careful not to wipe your Hard Drive, you can use `lsblk` and `dmesg` to identify the right device path**
 
 ***
 
@@ -91,11 +92,13 @@ ssh -p 5022 -i /home/youruser/.ssh/id_rsa.pub 192.168.0.124
 **Note:** if you want to have an *Static IP Address*, you can:
 
 1. modify the script (search the `ip=:::::eth0:dhcp`)
-2. or assign an static IP for your MAC in your router DHCP Server**
+   
+   or
+2. assign an static IP for your MAC in your router DHCP Server**
 
 ### Troubleshooting Raspbian/RaspiOS with RPI Versions
 
-If the initrd unlock process does not accept your password (or even your keyboard), you may have choosen a bad kernel modules. Remember: v7l+ is for RPI4, and v7+ for RPI3, then the kernel itself is selected by the bootloader, however the initrd modules are selected by you.
+If the initrd unlock process does not accept your password (or even your keyboard), you may have choosen a bad kernel module set. Remember: v7l+ is for RPI4, and v7+ for RPI3, then the kernel itself is selected by the bootloader, however the initrd modules are selected by you.
 
 ## TODO
 
