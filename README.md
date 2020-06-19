@@ -15,7 +15,7 @@ This set of scripts enable you to install **ubuntu** or **raspios** images on yo
 - SSH Remote Unlock (provided by dropbear)
 - Headless boot (you won't require a monitor to deploy your rpi servers)
 - Ability to Pre-install / deploy software/configuration inside your encrypted SDCard from your computer (before starting with the rpi hardware)
-- The encryption takes place during the installation, no need to use the old fashion (like writing the unencrypted base system first into the SDCard, making an image of it, and reencrypting...)
+- The encryption takes place during the installation, no need to use the old fashion way (like writing the unencrypted base system first into the SDCard, making an image of it, and reencrypting...)
 - You will be able to unlock the device using a remote SSH
 - Tested on RPI4 and RPI3
 
