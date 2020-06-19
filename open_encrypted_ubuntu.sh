@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Raspbian remote full disk encryption.
+# Ubuntu remote full disk encryption.
+# Supported Version: Ubuntu 20.04LTS
 
 # Author: Aaron G. Mizrachi P. <admin@unmanarc.com> (C) 2017-2020
 # License: MIT
@@ -36,7 +37,7 @@ function cleanup()
 	echo -ne "${BIWhite}[+] Cleaning up..."
 	umount /tmp/rpisystem/proc /tmp/rpisystem/sys &> /dev/null
 	umount /tmp/rpisystem/dev/pts /tmp/rpisystem/dev &> /dev/null
-	umount /tmp/rpisystem/boot &> /dev/null
+	umount /tmp/rpisystem/boot/firmware &> /dev/null
 	umount /tmp/rpisystem &> /dev/null
 	cryptsetup luksClose crypt_sdcard &> /dev/null
 	sync &> /dev/null
@@ -53,7 +54,7 @@ function usage()
 
 function banner()
 {
-	echo -e "${IGreen}Raspbian RootFS Encryption Shell (Raspbbery Disk Encryption) v1.0${Color_Off}"
+	echo -e "${IGreen}Ubuntu RootFS Encryption Shell (Raspbbery Disk Encryption) v1.0${Color_Off}"
 	printf "Done by Aaron G. Mizrachi P. <admin@unmanarc.com>, License: MIT\n"
 	printf "\n"
 }
@@ -81,6 +82,7 @@ if [ "$(echo ${TARGET_DEV} | grep mmcblk)" != ""  ]; then
         TARGET_PART1="${TARGET_DEV}p1"
 fi
 
+
 YES=
 
 clear
@@ -102,16 +104,13 @@ if [ "$?" != "0" ]; then
         exit
 fi
 
-echo -e "${BIWhite}[+] Mounting the boot from sdcard into /tmp/rpisystem/boot${Color_Off}"
-mount "${TARGET_PART1}" /tmp/rpisystem/boot
+echo -e "${BIWhite}[+] Mounting the firmware boot from sdcard into /tmp/rpisystem/boot/firmware${Color_Off}"
+mount "${TARGET_PART1}" /tmp/rpisystem/boot/firmware
 if [ "$?" != "0" ]; then
         echo -e "${BIWhite}[+] Error: aborting.${Color_Off}"
         cleanup
         exit
 fi
-
-echo -e "${BIWhite}[+] Fixing ld.so.preload${Color_Off}"
-sed -i 's/\/usr\/lib/#\/usr\/lib/g' /tmp/rpisystem/etc/ld.so.preload
 
 echo -e "${BIWhite}[+] Mounting proc,sys,dev,dev/pts${Color_Off}"
 mount -t proc none /tmp/rpisystem/proc

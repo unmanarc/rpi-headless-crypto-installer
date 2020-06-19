@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Raspbian remote full disk encryption.
+# Ubuntu remote full disk encryption.
 
-# Author: Aaron G. Mizrachi P. <admin@unmanarc.com> (C) 2017-2020
+# Author: Aaron G. Mizrachi P. <admin@unmanarc.com> (C) 2020
 # License: MIT
 
 # Thanks to https://carlo-hamalainen.net/2017/03/12/raspbian-with-full-disk-encryption/
@@ -42,7 +42,7 @@ function cleanup()
 	echo -ne "${BIWhite}[+] Cleaning up..."
 	umount /tmp/rpisystem/proc /tmp/rpisystem/sys &> /dev/null
 	umount /tmp/rpisystem/dev/pts /tmp/rpisystem/dev &> /dev/null
-	umount /tmp/rpisystem/boot &> /dev/null
+	umount /tmp/rpisystem/boot/firmware &> /dev/null
 	umount /tmp/rpisystem &> /dev/null
 	cryptsetup luksClose crypt_sdcard &> /dev/null
 	kpartx -d "${1}" &> /dev/null
@@ -52,9 +52,9 @@ function cleanup()
 
 function usage()
 {
-	printf "Usage: %s raspbian_original.img /dev/sdX id_rsa.pub\n" "$0" 1>&2
+	printf "Usage: %s ubuntu_original.img /dev/sdX id_rsa.pub\n" "$0" 1>&2
         printf "\n" 1>&2
-	printf "> raspbian_original.img is the Raspbian Image\n" 1>&2
+	printf "> ubuntu_original.img is the Ubuntu Image\n" 1>&2
 	printf "> /dev/sdX is the target (eg. /dev/sdf)\n" 1>&2
         printf "> id_rsa.pub is your public SSH key\n" 1>&2
 	printf "\n" 1>&2
@@ -62,21 +62,21 @@ function usage()
 
 function banner()
 {
-	echo -e "${IGreen}Raspbian RootFS Encryption (Raspbbery Disk Encryption) v1.0${Color_Off}"
+	echo -e "${IGreen}Ubuntu RootFS Encryption (Raspberry Disk Encryption) v1.0${Color_Off}"
 	printf "Done by Aaron G. Mizrachi P. <admin@unmanarc.com>, License: MIT\n"
 	printf "\n"
 }
 
-function installUpdateRaspbian()
+function installUpdateUbuntu()
 {
 cat << 'EOF' | install -m 700 /dev/stdin /tmp/rpisystem/update.sh
 #!/bin/bash
 
 apt update
-apt -y install busybox cryptsetup dropbear
-sed -i 's| init=/usr/lib/raspi-config/init_resize\.sh||' /boot/cmdline.txt
-sed -i 's/root\=.*\ /root=\/dev\/mapper\/crypt_sdcard cryptdevice=\/dev\/mmcblk0p2:crypt_sdcard rootfstype=ext4 elevator=noop fsck.repair=yes rootwait ip=:::::eth0:dhcp /g' /boot/cmdline.txt
-echo "initramfs initramfs.gz followkernel" >> /boot/config.txt
+apt -y install busybox cryptsetup dropbear-initramfs
+sed -i 's| init=/usr/lib/raspi-config/init_resize\.sh||' /boot/firmware/cmdline.txt
+sed -i 's/root\=.*\ /root=\/dev\/mapper\/crypt_sdcard cryptdevice=\/dev\/mmcblk0p2:crypt_sdcard rootfstype=ext4 elevator=noop fsck.repair=yes rootwait ip=:::::eth0:dhcp /g' /boot/firmware/cmdline.txt
+echo "initramfs initrd.img followkernel" >> /boot/firmware/usercfg.txt
 echo '>>> Setting up Dropbear options...'
 mv /authorized_keys /etc/dropbear-initramfs/authorized_keys
 sed -i 's/^DROPBEAR_OPTIONS.*$//g' /etc/dropbear-initramfs/config
@@ -85,25 +85,23 @@ dropbearkey -t rsa -s 4096 -f /etc/dropbear-initramfs/dropbear_rsa_host_key
 
 echo 'INITRD=Yes' >> /etc/default/raspberrypi-kernel
 
-
 cat << 'XOF' | install -m 755 /dev/stdin /etc/kernel/postinst.d/ZZ-initramfs-tools
 #!/bin/sh -e
 version="$1"
 bootopt=""
 
-if [ -e "/boot/initrd.img-${version}" ]; then
+if [ -e "/boot/firmware/initrd.img-${version}" ]; then
         echo reallocating initrd
-        mv "/boot/initrd.img-${version}" /boot/initramfs.gz
+        mv "/boot/firmware/initrd.img-${version}" /boot/firmware/initrd.img
 else
         echo not reallocating initrd
 fi
 XOF
 
 echo 'crypt_sdcard /dev/mmcblk0p2 none luks' >> /etc/crypttab
-sed -i 's/\#disable_overscan\=1/disable_overscan\=1/g' /boot/config.txt
+#sed -i 's/\#disable_overscan\=1/disable_overscan\=1/g' /boot/firmware/config.txt
 
-sed -i 's/^PARTUUID.*$//g' /etc/fstab 
-echo '/dev/mmcblk0p1  /boot           vfat    defaults          0       2'  >> /etc/fstab
+sed -i 's/^.*\/\t.*$//g' /etc/fstab
 echo '/dev/mapper/crypt_sdcard  /               ext4    defaults,noatime  0       1' >> /etc/fstab
 
 if [ -L "/dev/mmcblk0p2" ]; then
@@ -115,10 +113,7 @@ if [ ! -e "/dev/mmcblk0p2" ]; then
         ln -s "$1" /dev/mmcblk0p2
 fi
 echo '----------------------------------------------------------------------------'
-echo 'Common options (try yourself):'
-echo '*+     for RPI 1?'
-echo '*-v7+  for RPI 2/3?'
-echo '*-v7l+ for RPI 4'
+echo 'Choose the kernel:'
 echo '----------------------------------------------------------------------------'
 cd /lib/modules
 select KERNELVER in *; do test -n "$KERNELVER" && break; echo "> Invalid Selection <"; done
@@ -130,7 +125,7 @@ echo "' >> /etc/dropbear-initramfs/config" >> /tmp/rpisystem/update.sh
 
 cat << 'EOF' >> /tmp/rpisystem/update.sh
 echo building initramfs...
-mkinitramfs -v -o /boot/initramfs.gz "${KERNELVER}"
+mkinitramfs -v -o /boot/firmware/initrd.img "${KERNELVER}"
 EOF
 }
 
@@ -301,16 +296,13 @@ if [ "$?" != "0" ]; then
         exit
 fi
 
-echo -e "${BIWhite}[+] Mounting the boot from sdcard into /tmp/rpisystem/boot${Color_Off}"
-mount "${TARGET_PART1}" /tmp/rpisystem/boot
+echo -e "${BIWhite}[+] Mounting the firmware boot from sdcard into /tmp/rpisystem/boot/firmware${Color_Off}"
+mount "${TARGET_PART1}" /tmp/rpisystem/boot/firmware
 if [ "$?" != "0" ]; then
         echo -e "${BIWhite}[+] Error: aborting.${Color_Off}"
         cleanup "${TARGET_IMG}"
         exit
 fi
-
-echo -e "${BIWhite}[+] Fixing ld.so.preload${Color_Off}"
-sed -i 's/\/usr\/lib/#\/usr\/lib/g' /tmp/rpisystem/etc/ld.so.preload
 
 echo -e "${BIWhite}[+] Mounting proc,sys,dev,dev/pts${Color_Off}"
 mount -t proc none /tmp/rpisystem/proc
@@ -320,9 +312,9 @@ mount -o bind /dev/pts  /tmp/rpisystem/dev/pts
 cp /usr/bin/qemu-arm-static /tmp/rpisystem/usr/bin/ &> /dev/null
 
 
-#echo -e "${BIWhite}[+] Creating /etc/resolv.conf with dummy 8.8.8.8 server ${Color_Off}"				
-#mkdir -p /tmp/rpisystem/run/systemd/resolve/
-#echo 'nameserver 8.8.8.8' >> /tmp/rpisystem/run/systemd/resolve/stub-resolv.conf
+echo -e "${BIWhite}[+] Creating /etc/resolv.conf with dummy 8.8.8.8 server ${Color_Off}"				
+mkdir -p /tmp/rpisystem/run/systemd/resolve/
+echo 'nameserver 8.8.8.8' >> /tmp/rpisystem/run/systemd/resolve/stub-resolv.conf
 
 echo -e "${BIWhite}[+] Copying the authorized key${Color_Off}"
 #printf "command=\"/lib/cryptsetup/askpass 'Enter luks password:' > /lib/cryptsetup/passfifo\" " > /tmp/rpisystem/authorized_keys 
@@ -330,12 +322,12 @@ echo -e "${BIWhite}[+] Copying the authorized key${Color_Off}"
 
 # Restrictions:
 #printf 'no-port-forwarding,no-agent-forwarding,no-x11-forwarding,command="PATH=$PATH:/usr/sbin:/sbin /scripts/local-top/cryptroot && kill -9 `ps | grep -m 1 '\''cryptroot'\'' | cut -d '\'' '\'' -f 3`" ' > /tmp/rpisystem/authorized_keys
-printf 'no-port-forwarding,no-agent-forwarding,no-x11-forwarding,command="cryptroot-unlock" ' > /tmp/rpisystem/authorized_keys
+printf 'no-port-forwarding,no-agent-forwarding,no-x11-forwarding,command="/bin/cryptroot-unlock" ' > /tmp/rpisystem/authorized_keys
 
 cat "${PUBKEY}" >> /tmp/rpisystem/authorized_keys
 chmod 600 /tmp/rpisystem/authorized_keys
 
-installUpdateRaspbian "${DROPBEAR_OPTIONS}"
+installUpdateUbuntu "${DROPBEAR_OPTIONS}"
 
 echo -e "${BIWhite}[+] Updating target system${Color_Off}"
 LANG=C chroot /tmp/rpisystem /bin/su -l -c "/update.sh ${TARGET_PART2}"
